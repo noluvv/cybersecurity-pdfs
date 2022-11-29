@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en-US">
+
+<head>
+  <meta charset='utf-8'>
+  <meta http-equiv="X-UA-Compatible" content="chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="/assets/css/style.css?v=187f15a3349dbdbbcc99a9f5a6cd773633951590">
+  <link rel="shortcut icon" type="image/png" href="/favicon.png">
+  <title>WPA wifi cracking on a MacBook Pro with deauth</title>
+  <meta property="og:title" content="WPA wifi cracking on a MacBook Pro with deauth" />
+  
+
+  
+
+  
+
+  
+
+</head>
+
+<body>
+
+  <header>
+    <div class="container">
+      <h1><a href="https://louisabraham.github.io">Louis Abraham's Home Page</a></h1>
+      
+      <h1>WPA wifi cracking on a MacBook Pro with deauth</h1>
+      
+    </div>
+  </header>
+
+  <div class="container">
+    
+    <h3 class="date">28 Jul 2017</h3>
+    
+    <section id="main_content">
+      <p>Yesterday, my friend Victor wanted to crack a wifi network (his, of course) using his MacBook Pro.</p>
+
+<p>I told him to use the excellent VirtualBox images of Kali Linux from <a href="https://www.offensive-security.com/kali-linux-vmware-virtualbox-image-download/">Offensive Security</a> and <a href="https://www.aircrack-ng.org/">aircrack-ng</a>.</p>
+
+<p>I had just forgotten that:</p>
+
+<ul>
+  <li>Using advanced wireless features is impossible from a virtual machine</li>
+  <li>Even if he used Kali Linux with a dual boot, installing the wireless drivers to make it work with the airport card is tiresome.</li>
+  <li>Most (not <code class="language-plaintext highlighter-rouge">airmon-ng</code>) aircrack-ng tools can be installed on macOS with <a href="https://www.macports.org/">MacPorts</a>, but <code class="language-plaintext highlighter-rouge">airodump-ng</code> and <code class="language-plaintext highlighter-rouge">aireplay-ng</code> crash.</li>
+</ul>
+
+<p>So <strong>PLEASE</strong>, if you want to do other advanced networking things than network sniffing or what is described in this article, do yourself a favour and buy an USB adapter to use with the virtual machine.</p>
+
+<p>There is a list on the website of <code class="language-plaintext highlighter-rouge">aircrack-ng</code>, and I think the Alfa AWUS051NH v2 is great.
+Some people say it is expensive, but last time I checked on <a href="https://www.google.com/search?q=Alfa+AWUS051NH+v2&amp;tbm=shop">Google Shopping</a>, it cost less than half an Apple mouse.</p>
+
+<h1 id="what-is-a-wpa-attack">What is a WPA attack?</h1>
+
+<p>There are 3 steps:</p>
+
+<ul>
+  <li><strong>Identify</strong> the target acces point: name (= BSSID), MAC address (= SSID) and channel (~ radio frequency)</li>
+  <li><strong>Sniff</strong> the channel in monitor mode to retrieve:
+    <ul>
+      <li>a beacon (easy)</li>
+      <li>a handshake (= four-way handshake), or some frames of it (hard)</li>
+    </ul>
+  </li>
+  <li><strong>Crack</strong> the password using the dump</li>
+</ul>
+
+<p>What makes the retrieval of the handshake hard is that it appears only when somebody connects to the access point.</p>
+
+<p>The good news is that you can deauthentificate people from the wifi network - it’s called wifi jamming and it’s useful to impress a girl and piss off people at Starbucks.
+When they reconnect, they re-send the handshake.  That adds a <strong>Deauth</strong> step.</p>
+
+<h1 id="identify-the-target---with-airport"><strong>Identify</strong> the target - with <code class="language-plaintext highlighter-rouge">airport</code></h1>
+
+<h2 id="install">“Install”</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo ln</span> <span class="nt">-s</span> /System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport /usr/sbin/airport
+</code></pre></div></div>
+
+<h2 id="scan">Scan</h2>
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">sudo </span>airport <span class="nt">-s</span>
+</code></pre></div></div>
+
+<h1 id="sniff---the-easy-way-with-airport"><strong>Sniff</strong> - The easy way with <code class="language-plaintext highlighter-rouge">airport</code></h1>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>// Ctrl-C to stop capturing
+<span class="nb">sudo </span>airport en1 sniff <span class="nv">$CHANNEL</span>
+</code></pre></div></div>
+
+<p>It saves the <code class="language-plaintext highlighter-rouge">.cap</code> capture file and displays the path.</p>
+
+<h1 id="crack---the-easy-way-with-aircrack-ng"><strong>Crack</strong> - The easy way with <code class="language-plaintext highlighter-rouge">aircrack-ng</code></h1>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>aircrack-ng <span class="nt">-w</span> wordlist.txt <span class="nt">-b</span> <span class="nv">$TARGET_MAC_ADDRESS</span> airportSniff.cap
+</code></pre></div></div>
+
+<p>If you don’t have the beacon or the handshake, it will fail accordingly.</p>
+
+<p>For wordlists, see below.</p>
+
+<h1 id="deauth"><strong>Deauth</strong></h1>
+
+<p>As I said, <code class="language-plaintext highlighter-rouge">aireplay-ng</code> doesn’t work on a MacBook Pro.
+The catch is that <code class="language-plaintext highlighter-rouge">aireplay-ng</code> can do a lot of other things besides deauth attacks.</p>
+
+<p>You might read that airport cards do not support packet injection, but packet injections are for WEP attacks and nobody uses WEP anymore. We only want to send some deauthentification frames.</p>
+
+<p>Use <a href="https://github.com/unixpickle/JamWiFi">JamWiFi</a>. A ready-to-use application is provided <a href="http://macheads101.com/pages/downloads/mac.php">there</a>.</p>
+
+<p>In fact, you can indentify the target with it too, and it has a really nice GUI.</p>
+
+<p>Once you have selected the access point, you can deauth one or multiple users. Stop after about 50 “Deauths”, or else the persons might have trouble to reconnect during several minutes.</p>
+
+<p>It might not work it you are too far from the target as your airport card is far less powerful than the router.</p>
+
+<h1 id="sniff---the-good-way-with-tcpdump"><strong>Sniff</strong> - The good way with <code class="language-plaintext highlighter-rouge">tcpdump</code></h1>
+
+<p>Using <code class="language-plaintext highlighter-rouge">airport</code> presents some issues. You cannot know if you got the beacon and the handshake until you stop the capture and try with <code class="language-plaintext highlighter-rouge">aircrack-ng</code>.</p>
+
+<p>You capture a lot of unuseful packets too.</p>
+
+<p>Using <code class="language-plaintext highlighter-rouge">tcpdump</code> is more efficient.</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">export </span><span class="nv">BSSID</span><span class="o">=</span><span class="nv">$TARGET_MAC_ADDRESS</span>
+<span class="c"># disassociate</span>
+<span class="nb">sudo </span>airport <span class="nt">-z</span>
+<span class="c"># set the channel</span>
+<span class="c"># DO NOT PUT SPACE BETWEEN -c and the channel</span>
+<span class="c"># for example sudo airport -c6</span>
+<span class="nb">sudo </span>airport <span class="nt">-c</span><span class="nv">$CHANNEL</span>
+<span class="c"># capture a beacon frame from the AP</span>
+<span class="nb">sudo </span>tcpdump <span class="s2">"type mgt subtype beacon and ether src </span><span class="nv">$BSSID</span><span class="s2">"</span> <span class="nt">-I</span> <span class="nt">-c</span> 1 <span class="nt">-i</span> en1 <span class="nt">-w</span> beacon.cap
+<span class="c"># wait for the WPA handshake</span>
+<span class="nb">sudo </span>tcpdump <span class="s2">"ether proto 0x888e and ether host </span><span class="nv">$BSSID</span><span class="s2">"</span> <span class="nt">-I</span> <span class="nt">-U</span> <span class="nt">-vvv</span> <span class="nt">-i</span> en1 <span class="nt">-w</span> handshake.cap
+<span class="c"># merge the two files</span>
+mergecap <span class="nt">-a</span> <span class="nt">-F</span> pcap <span class="nt">-w</span> capture.cap beacon.cap handshake.cap
+</code></pre></div></div>
+
+<p>When you launch those lines, the first <code class="language-plaintext highlighter-rouge">tcpdump</code> easily captures a beacon and the second waits for the handshake.</p>
+
+<p>Use JamWiFi to deauth some users, and when <code class="language-plaintext highlighter-rouge">tcpdump</code> shows you it got 4 frames or more, Ctrl-C. It appears you can use less that 4 frames, but it depends on the frames you got (for instance 1,2 or 2,3 are sufficient). Anyway you should normally get at least 4. If nothing shows, try to deauth another user.</p>
+
+<p>Now you have everything in <code class="language-plaintext highlighter-rouge">capture.cap</code>. You can also run <code class="language-plaintext highlighter-rouge">aircrack-ng</code> on it.</p>
+
+<h1 id="crack---the-good-way-with-hashcat"><strong>Crack</strong> - The good way with <code class="language-plaintext highlighter-rouge">hashcat</code></h1>
+
+<p>Like <code class="language-plaintext highlighter-rouge">aireplay-ng</code>, <code class="language-plaintext highlighter-rouge">aircrack-ng</code> offers so many features that it cannot be the best in everything.</p>
+
+<p>We can really speed up the process by using <a href="https://hashcat.net/hashcat/">hashcat</a>.</p>
+
+<h2 id="install-with-brew">Install with <a href="https://brew.sh/">brew</a></h2>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>brew <span class="nb">install </span>hashcat
+</code></pre></div></div>
+
+<h2 id="convert-with-cap2hccapx">Convert with cap2hccapx</h2>
+
+<p><code class="language-plaintext highlighter-rouge">hashcat</code> doesn’t take cap files, only hccapx files.</p>
+
+<p>Just install <a href="https://github.com/hashcat/hashcat-utils">hashcat-utils</a> and use <a href="https://github.com/hashcat/hashcat-utils/blob/master/src/cap2hccapx.c">cap2hccapx</a></p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cap2hccapx capture.cap capture.hccapx
+</code></pre></div></div>
+
+<p>Alternatively, use <a href="https://hashcat.net/cap2hccapx/">this online tool</a>.</p>
+
+<h2 id="crack">Crack</h2>
+
+<p><a href="https://hashcat.net/wiki/doku.php?id=cracking_wpawpa2">This page</a> provides some examples.</p>
+
+<p>To use with a dictionnary:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hashcat <span class="nt">-m</span> 2500 capture.hccapx wordlist.txt
+</code></pre></div></div>
+
+<p>You have a lot of other options, like brute force:</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>hashcat <span class="nt">-m</span> 2500 <span class="nt">-a3</span> capture.hccapx ?d?d?d?d?d?d?d?d
+</code></pre></div></div>
+
+<p>Refer to the <a href="https://hashcat.net/wiki/doku.php?id=mask_attack">documentation</a> fot more patterns.</p>
+
+<h2 id="speed">Speed</h2>
+
+<p><code class="language-plaintext highlighter-rouge">hashcat</code> works on the GPU.</p>
+
+<p>On my MacBook Pro, it yields a performance of 5kH/s: it tests 5000 passwords in a second.</p>
+
+<p>On a Tesla K20m, the speed is 75kH/s. I managed to crack the 5 last lowercase letters of a wifi password in about 1 minute (26**5 // 75000 = 158 seconds to test them all).</p>
+
+<p>We can see <a href="https://gist.github.com/epixoip/a83d38f412b4737e99bbef804a270c40">here</a> that a GTX 1080 breaks 400kH/s.</p>
+
+<h1 id="wordlists">Wordlists</h1>
+
+<p>I recommend:</p>
+
+<ul>
+  <li><a href="https://github.com/berzerk0/Probable-Wordlists/tree/master/Real-Passwords/WPA-Length">https://github.com/berzerk0/Probable-Wordlists/tree/master/Real-Passwords/WPA-Length</a></li>
+  <li><a href="https://xa.to/10m">https://xa.to/10m</a></li>
+</ul>
+
+<p>For more efficiency, target the networks with silly names (good examples are “mozart”, “I love cats”, “Harry and Sally”), and avoid the ones called “National Security Agency”, “sysadmin” and “sup3r h4x0r”.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>To find a password, you have to be lucky and have a good idea of its shape.</p>
+
+<p>A lot of default wifi passwords are composed of 8 or 10 hexadecimal digits.</p>
+
+<p>In average (worst case divided by 2) and according to the above benchmark, with a GTX 1080:</p>
+
+<ul>
+  <li>8 hexadecimal characters take 90 minutes.</li>
+  <li>10 hexadecimal characters take 16 days.</li>
+  <li>12 hexadecimal characters take 11 years.</li>
+</ul>
+
+<p>If you only want free wifi, just do MAC spoofing on a hotspot that uses web login.</p>
+
+<h1 id="references">References</h1>
+
+<p><a href="http://www.saltwaterc.eu/capturing-wpa-handshakes-with-os-x.html">http://www.saltwaterc.eu/capturing-wpa-handshakes-with-os-x.html</a></p>
+
+<p><a href="https://gist.github.com/victorreyesh/6532800">https://gist.github.com/victorreyesh/6532800</a></p>
+
+<p><a href="https://github.com/brannondorsey/wifi-cracking">https://github.com/brannondorsey/wifi-cracking</a></p>
+
+<p><a href="https://hashcat.net/wiki/doku.php?id=cracking_wpawpa2">https://hashcat.net/wiki/doku.php?id=cracking_wpawpa2</a></p>
+
+    </section>
+  </div>
+
+  
+  <script type="text/javascript">
+    (function (i, s, o, g, r, a, m) {
+      i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+        (i[r].q = i[r].q || []).push(arguments)
+      }, i[r].l = 1 * new Date(); a = s.createElement(o),
+        m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+    })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+    ga('create', 'UA-102039815-1', 'auto');
+    ga('send', 'pageview');
+  </script>
+  
+
+  
+
+  <script type="text/javascript">
+    const resolve = async (item) => 
+      fetch("https://louisabraham.github.io/store/" + item.id)
+        .then(res => res.text())
+        .then(text => {item.innerHTML = text.slice(0, -1)})
+    
+    for(item of document.getElementsByTagName('store')){
+      resolve(item)
+    }
+  </script>
+
+  
+
+  
+
+  
+
+</body>
+
+</html>
